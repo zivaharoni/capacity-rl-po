@@ -1,20 +1,20 @@
 {
-  "channel_cardinality":  8,
-  "batch_size": 5,
-  "batch_size_eval": 5,
+  "channel_cardinality":  9,
+  "batch_size": 10,
+  "batch_size_eval": 10,
   "dropout": 0.0,
   "eval_freq": 100,
   "eval_len": 20,
-  "eval_long_len": 10000,
+  "eval_long_len": 1000,
   "exp_name": "journal",
   "hidden_size": [1000, 1000],
   "learning_rate": 0.001,
   "learning_rate_decay": 0.97,
   "learning_rate_decay_steps": 200,
-  "num_epochs": 25000,
-  "n_clusters": 16,
+  "num_epochs": 5000,
+  "n_clusters": 20,
   "restore_path": null,
   "seed": null,
   "summary_length": 125,
-  "unroll_steps": 5
+  "unroll_steps": 2
 }
