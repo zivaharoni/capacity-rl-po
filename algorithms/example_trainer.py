@@ -3,6 +3,7 @@ import numpy as np
 np.set_printoptions(formatter={'float': lambda x: "{0:0.3f}".format(x)})
 from sklearn.cluster import KMeans
 from tqdm import tqdm
+import mlflow
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import backend as K
@@ -29,7 +30,7 @@ class POTrainer:
                                                               decay_steps=self.config.num_epochs//self.config.learning_rate_decay_steps,
                                                               decay_rate=self.config.learning_rate_decay,
                                                               staircase=False)
-        self.optimizer = Adam(learning_rate=lr_sche)
+        self.optimizer = SGD(learning_rate=lr_sche)
 
         self.model.compile(optimizer=self.optimizer,
                            loss=loss)
@@ -51,11 +52,6 @@ class POTrainer:
             u = self.actor.model(z, training=True)
             z_u = Concatenate(axis=-1, name=name("concat_z_u",t))([z, u])
             r, z_prime = self.env.model(z_u)
-            # size = K.cast(tf.shape(probs), dtype=tf.int64)[0]
-            #
-            # disturbance = K.squeeze(tf.random.categorical(tf.math.log(probs), 1), axis=-1)
-            # next_state_indices = K.stack([tf.range(size), disturbance], axis=1)
-            # z_prime = tf.gather_nd(z_primes, next_state_indices)
 
             rewards.append(r)
             z = z_prime
@@ -66,26 +62,10 @@ class POTrainer:
 
         return Model(inputs=self.input, outputs=[self.rewards, self.states])
 
-    # def train_epoch(self):
-    #     loop = tqdm(range(self.config.num_iter_per_epoch))
-    #     losses = []
-    #     accs = []
-    #     for _ in loop:
-    #         loss, acc = self.train_step()
-    #         losses.append(loss)
-    #         accs.append(acc)
-    #     loss = np.mean(losses)
-    #     acc = np.mean(accs)
-    #
-    #     cur_it = self.model.global_step_tensor.eval(self.sess)
-    #     summaries_dict = {
-    #         'loss': loss,
-    #         'acc': acc,
-    #     }
-    #     self.logger.summarize(cur_it, summaries_dict=summaries_dict)
-    #     self.model.save(self.sess)
+    @tf.function
+    def train_epoch(self):
+        raise NotImplementedError
 
-    # @tf.function
     @tf.function
     def train_step(self, z):
         with tf.GradientTape() as tape:
@@ -109,16 +89,14 @@ class POTrainer:
 
         z = tf.random.uniform([self.config.batch_size, self.input_dim])
         for k in range(self.config.num_epochs):
-            I, z = self.train_step(z)
             if k % self.config.eval_freq == 0:
                 average_reward, state_histogram = self.test(self.config.eval_len)
-                with open(os.path.join(self.config.summary_dir,"log.txt"), 'a') as f:
-                    f.write(template.format(k, lr(k), average_reward) + "\n")
                 print(template.format(k, lr(k), average_reward))
+                mlflow.log_metric("average_reward", float(average_reward), k)
+            I, z = self.train_step(z)
 
         average_reward, state_histogram = self.test(self.config.eval_long_len)
-        with open(os.path.join(self.config.summary_dir, "log.txt"), 'a') as f:
-            f.write("Epoch: {}\tAverage Reward: {:8.5f} \n".format("Final", average_reward))
+        mlflow.log_metric("average_reward", float(average_reward), self.config.num_epochs)
         print("Epoch: {}\tAverage Reward: {:8.5f} ".format("Final", average_reward))
 
         state_clusters = KMeans(n_clusters=self.config.n_clusters).fit(state_histogram)
