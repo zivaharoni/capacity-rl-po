@@ -47,7 +47,9 @@ def process_config(args):
         config.seed = randint(0, 1000000)
 
     config.experiment_dir = os.path.join("./experiments",
-                                         config.exp_name)
+                                         config.exp_name,
+                                         str(config.seed))
+
     config.summary_dir = os.path.join(config.experiment_dir, "summary")
     config.checkpoint_dir = os.path.join(config.experiment_dir, "checkpoint")
     config.print()
